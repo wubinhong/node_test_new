@@ -1,12 +1,81 @@
-import { Get, Injectable } from '@nestjs/common';
+import { Get, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateEventDto } from './dto/create-event.dto';
 
 @Injectable()
 export class EventsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
+
+  private log: Logger = new Logger(EventsService.name);
 
   getWarmupEvents() {
     return this.prisma.event.findMany();
+  }
+
+  async initEvents() {
+    let events: CreateEventDto[] = [
+      {
+        name: 'Laravel convention 2021',
+        workshops: [
+          {
+            start: '2021-02-21T10:00:00Z',
+            end: '2021-02-21T16:00:00Z',
+            name: 'Illuminate your knowledge of the laravel code base',
+          },
+        ],
+      },
+      {
+        name: 'Laravel convention 2023',
+        workshops: [
+          {
+            start: '2023-10-21T10:00:00Z',
+            end: '2023-10-21T18:00:00Z',
+            name: 'The new Eloquent - load more with less',
+          },
+          {
+            start: '2023-11-21T09:00:00Z',
+            end: '2023-11-21T17:00:00Z',
+            name: 'AutoEx - handles exceptions 100% automatic',
+          },
+        ],
+      },
+      {
+        name: 'React convention 2023',
+        workshops: [
+          {
+            start: '2023-08-21T10:00:00Z',
+            end: '2023-08-21T18:00:00Z',
+            name: '#NoClass pure functional programming',
+          },
+          {
+            start: '2023-08-21T09:00:00Z',
+            end: '2023-08-21T17:00:00Z',
+            name: 'Navigating the function jungle',
+          },
+        ],
+      },
+    ];
+    // Create events one by one to ensure they are inserted into db sequentially.
+    // Otherwies the test case for `GET /events/warmupevents` and `GET /events/events` fail.
+    let eventsInDB = [];
+    for (let i in events) {
+      let e = events[i];
+      // console.log(e);
+      let r = await this.prisma.event.create({
+        data: {
+          name: e.name,
+          workshops: {
+            create: e.workshops
+          }
+        },
+        include: {
+          workshops: true
+        }
+      });
+      eventsInDB.push(r);
+    }
+    this.log.debug('Updated success!', eventsInDB);
+    return eventsInDB;
   }
 
   /* TODO: complete getEventsWithWorkshops so that it returns all events including the workshops
@@ -88,7 +157,13 @@ export class EventsService {
 
   @Get('events')
   async getEventsWithWorkshops() {
-    throw new Error('TODO task 1');
+    const events = this.prisma.event.findMany({
+      include: {
+        workshops: true
+      }
+    });
+    this.log.debug('events', events);
+    return events;
   }
 
   /* TODO: complete getFutureEventWithWorkshops so that it returns events with workshops, that have not yet started
@@ -159,6 +234,20 @@ export class EventsService {
      */
   @Get('futureevents')
   async getFutureEventWithWorkshops() {
-    throw new Error('TODO task 2');
+    const events = await this.prisma.event.findMany({
+      where: {
+        workshops: {
+          every: {
+            start: {
+              gt: new Date()
+            }
+          }
+        }
+      },
+      include: {
+        workshops: true
+      }
+    });
+    return events;
   }
 }
