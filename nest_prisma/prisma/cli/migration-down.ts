@@ -13,7 +13,7 @@ const prisma = new PrismaService();
   for (const file of executedMigrations) {
     const importedModule = await import(path.resolve(migrationDir, file.name));
 
-    if (!isMigration(importedModule.default)) {
+    if (!importedModule.default || !isMigration(new importedModule.default())) {
       continue;
     }
     const instance = new importedModule.default();

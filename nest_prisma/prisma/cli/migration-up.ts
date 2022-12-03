@@ -12,7 +12,7 @@ const migrationDir = path.resolve(__dirname, '../migrations');
       path.resolve(__dirname, migrationDir, file)
     );
 
-    if (!isMigration(importedModule.default)) {
+    if (!importedModule.default || !isMigration(new importedModule.default())) {
       continue;
     }
     const instance = new importedModule.default();
